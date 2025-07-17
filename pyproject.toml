@@ -1,0 +1,13 @@
+[project]
+name = "ai-diagnosis-case"
+version = "0.0.1"
+description = "AI-based diagnostics system for reducing unplanned downtime"
+readme = "README.md"
+authors = [
+  {name = "Natalya Kozlova", email = "NK.1209@yandex.ru"},
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.3.1",
+    "pathlib>=1.0.1",
+]
