@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 import zipfile
 from urllib.parse import unquote
@@ -26,25 +27,26 @@ class FileHandler():
             raise IOError(f"Не удалось прочитать файл '{file_path}': {e}") from e
 
     @staticmethod
-    def download_data(url: str = 'https://drive.fondsmena.ru/s/3fiHapYG8cpbafk/download',
-                      save_dir: str = './data/raw/') -> None:
+    def download_and_unpack_data(url: str, target_dir: str) -> None:
         """
         Скачивает и распаковывает данные в папку data/raw. 
-        После распаковки удаляет скачанный архив. 
+        После распаковки удаляет все данные в data/raw кроме скачанных csv.
         Требует наличие requests.
         """
 
-        save_dir_path = Path(save_dir)
-        # список путей для очистки в дальнейшем
-        cleanup_paths = []
+        save_dir_path = Path(target_dir)
 
+        for csv_file in save_dir_path.glob("*.csv"):
+            csv_file.unlink()  # удаляет файл
+        
         try:
-
             # создание data/raw
             save_dir_path.mkdir(parents=True, exist_ok=True)
 
             # загрузка
             with requests.get(url, stream=True, timeout=30) as r:
+
+                # raise_for_status will rise an exception if status_code is 4xx or 5xx
                 r.raise_for_status()
 
                 # имя архива забираем из заголовка
@@ -54,31 +56,23 @@ class FileHandler():
                 else:
                     filename = "downloaded_archive.zip"
 
-                first_archive_path = save_dir_path / filename
-                cleanup_paths.append(first_archive_path)
+                archive_path = save_dir_path / filename
 
                 # скачиваем архив
-                with first_archive_path.open('wb') as f:
+                with archive_path.open('wb') as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
 
             # распаковка
-            with zipfile.ZipFile(first_archive_path, 'r') as zip_ref:
+            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
                 zip_ref.extractall(save_dir_path)
 
             # имена всех вложенных архивов (у нас только 1)
-            nested_archives = [p for p in save_dir_path.rglob('*.zip') if p != first_archive_path]
+            csv_files = list(save_dir_path.rglob('*.csv'))
 
-            # если вложенных архивов нет, значит что-то пошло не так
-            if not nested_archives:
-                raise ValueError("Нет вложенного архива, который должен был быть")
-
-            second_archive_path = nested_archives[0]
-            second_archive_dir = second_archive_path.parent
-            cleanup_paths.append(second_archive_path)
-
-            with zipfile.ZipFile(second_archive_path, 'r') as zip_ref:
-                zip_ref.extractall(save_dir_path)
+            # если нет csv, значит что-то пошло не так
+            if not csv_files:
+                raise ValueError(".csv файлы после разархивации не обнаружены")
 
             return None
 
@@ -92,12 +86,11 @@ class FileHandler():
             raise Exception(f"Непредвиденная ошибка {e}") from e
 
         finally:
-            # удаляем все ненужные файлы и папки
-            for path in cleanup_paths:
-                if path.exists():
-                    if path.is_file():
-                        path.unlink()
-            if second_archive_dir.exists() and second_archive_dir.is_dir():
-                second_archive_dir.rmdir()
+            # удалить всё кроме .csv файлов в папке data/raw
+            for path in save_dir_path.rglob("*"):
+                if path.is_file() and path.suffix != ".csv":
+                    path.unlink()
+                elif path.is_dir():
+                    shutil.rmtree(path, ignore_errors=True)
 
 
