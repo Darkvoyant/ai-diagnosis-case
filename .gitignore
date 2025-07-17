@@ -208,3 +208,6 @@ __marimo__/
 
 # Mac-OS
 .DS_Store
+
+# Ignore all heavy .csv files
+.csv
