@@ -8,7 +8,7 @@ import sys
 from scipy.fft import fft, fftfreq
 from scipy.signal import find_peaks
 
-# --- Константа частоты дискретизации, как вы и указали ---
+# --- Константа частоты дискретизации ---
 SAMPLING_RATE = 25600
 
 # Пытаемся импортировать обязательные модули
@@ -79,10 +79,27 @@ if st.session_state.df is not None:
     st.dataframe(st.session_state.df.head(100))
     st.info(f"Форма: {st.session_state.df.shape[0]} строк × {st.session_state.df.shape[1]} столбцов")
 
+    # --- ИСПРАВЛЕННЫЙ БЛОК ВРЕМЕННОГО ГРАФИКА ---
+    st.write("---")
     st.write("### 📈 Временной график")
     if st.button("🎨 Построить временной график"):
-        # ... (код графика временных рядов без изменений) ...
-        pass # Скрыто для краткости, ваш код здесь работает
+        required_columns = ['time', 'current_R', 'current_S', 'current_T']
+        if all(col in st.session_state.df.columns for col in required_columns):
+            with st.spinner("⏳ Рисуем временной график..."):
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=st.session_state.df['time'], y=st.session_state.df['current_R'], mode='lines', name='current_R'))
+                fig.add_trace(go.Scatter(x=st.session_state.df['time'], y=st.session_state.df['current_S'], mode='lines', name='current_S'))
+                fig.add_trace(go.Scatter(x=st.session_state.df['time'], y=st.session_state.df['current_T'], mode='lines', name='current_T'))
+                fig.update_layout(
+                    title=f"График токов из файла {st.session_state.current_file}",
+                    xaxis_title="Время, секунды",
+                    yaxis_title="Значение тока, Ампер",
+                    dragmode="pan"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.error(f"Не удалось построить график. Необходимые столбцы не найдены: {required_columns}")
+    # --------------------------------------------------
 
     # --- БЛОК ЧАСТОТНОГО АНАЛИЗА С ВЫБОРОМ ЧАСТОТЫ ---
     st.write("---")
@@ -101,6 +118,7 @@ if st.session_state.df is not None:
         use_db_scale = st.checkbox("Амплитуда в дБ", value=True)
     
     if st.button("🚀 Выполнить анализ и найти гармоники"):
+        # ... (код для частотного анализа остается без изменений) ...
         df = st.session_state.df
         st.info(f"Анализ для сети **{nominal_freq} Гц**. Частота дискретизации: **{SAMPLING_RATE} Гц**")
         
