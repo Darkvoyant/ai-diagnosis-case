@@ -31,9 +31,9 @@ def display_file_overview(df, current_file):
         if all(col in df.columns for col in required_columns):
             with st.spinner("⏳ Рисуем временной график..."):
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(x=df['time'], y=df['current_R'], mode='lines', name='current_R'))
-                fig.add_trace(go.Scatter(x=df['time'], y=df['current_S'], mode='lines', name='current_S'))
-                fig.add_trace(go.Scatter(x=df['time'], y=df['current_T'], mode='lines', name='current_T'))
+                fig.add_trace(go.Scattergl(x=df['time'], y=df['current_R'], mode='lines', name='current_R'))
+                fig.add_trace(go.Scattergl(x=df['time'], y=df['current_S'], mode='lines', name='current_S'))
+                fig.add_trace(go.Scattergl(x=df['time'], y=df['current_T'], mode='lines', name='current_T'))
                 fig.update_layout(title=f"График токов из файла {current_file}", xaxis_title="Время, секунды", yaxis_title="Значение тока, Ампер", dragmode="pan")
                 st.plotly_chart(fig, use_container_width=True)
         else:
