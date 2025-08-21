@@ -14,6 +14,8 @@ except ImportError:
 # Импортируем функции для отрисовки UI
 from src.ui.sections import (
     display_file_overview,
+    display_rms_analysis,
+    display_clarke_transform_analysis,
     display_harmonic_analysis_section,
     display_bearing_defect_analysis_section
 )
@@ -58,7 +60,8 @@ else:
 if st.session_state.df is not None:
     # Передаем df и current_file как аргументы
     display_file_overview(st.session_state.df, st.session_state.current_file) 
-    
+    display_rms_analysis(st.session_state.df)
+    display_clarke_transform_analysis(st.session_state.df)
     # Передаем только df
     display_harmonic_analysis_section(st.session_state.df)
     display_bearing_defect_analysis_section(st.session_state.df)
