@@ -11,33 +11,89 @@ from src.utils.config import SAMPLING_RATE, RPM, LINE_FREQ_SEARCH_RANGE, DEFAULT
 
 # --- ОСНОВНЫЕ ФУНКЦИИ ОТОБРАЖЕНИЯ С ОБНОВЛЕННОЙ ЛОГИКОЙ ---
 
+# Эта функция находится в вашем файле src/ui/sections.py
+import streamlit as st
+import plotly.graph_objects as go
+import pandas as pd
+
+# Эта функция находится в вашем файле src/ui/sections.py
+import streamlit as st
+import plotly.graph_objects as go
+import pandas as pd
+import numpy as np # Для округления
+
 def display_file_overview(df, current_file):
-    """Отображает превью данных и, по запросу, график временного ряда."""
+    """Отображает превью данных и, по запросу, график временного ряда с обрезкой по длительности."""
     st.write("---")
     st.write("### 🔍 Предпросмотр обработанных данных")
     st.dataframe(df.head(100))
-    st.info(f"Форма: {df.shape[0]} строк × {df.shape[1]} столбцов")
+    st.info(f"Форма: {df.shape[0]:,} строк × {df.shape[1]} столбцов")
 
     st.write("---")
     st.write("### 📈 Временной график")
-    if st.button("🎨 Построить временной график"):
-        # Устанавливаем, какой график должен быть активным
-        st.session_state.active_plot = 'time_series'
 
-    # --- Блок отображения ---
-    # График отображается только если он активен
+    # --- Управление видимостью блока настроек ---
+    if 'show_ts_controls' not in st.session_state:
+        st.session_state.show_ts_controls = False
+
+    button_text = "Скрыть настройки графика" if st.session_state.show_ts_controls else "⚙️ Настроить и построить временной график"
+    if st.button(button_text):
+        st.session_state.show_ts_controls = not st.session_state.show_ts_controls
+        if not st.session_state.show_ts_controls:
+            st.session_state.active_plot = None # Скрываем график при закрытии настроек
+            
+    # --- Блок с настройками (виден по условию) ---
+    if st.session_state.show_ts_controls:
+        with st.container(border=True):
+            st.markdown("##### ⚙️ Настройки отображения")
+            
+            required_columns = ['time', 'current_R', 'current_S', 'current_T']
+            if not all(col in df.columns for col in required_columns):
+                st.error(f"Необходимые столбцы не найдены: {required_columns}")
+            else:
+                # --- НОВЫЙ БЛОК: Слайдер для выбора длительности ---
+                total_duration = df['time'].max()
+                
+                # Устанавливаем разумное значение по умолчанию (например, 5 секунд или вся длина, если она меньше)
+                default_duration = min(5.0, total_duration)
+
+                max_duration = st.slider(
+                    "Длительность анализа (секунды):",
+                    min_value=0.1,
+                    max_value=float(np.ceil(total_duration)), # Округляем общую длительность вверх
+                    value=default_duration,
+                    step=0.1,
+                    format="%.1f сек", # Форматирование для наглядности
+                    help="Ограничьте длительность для ускорения отрисовки и анализа начальных процессов."
+                )
+                
+                # --- ФИНАЛЬНАЯ КНОПКА ЗАПУСКА ---
+                if st.button("🎨 Построить график с выбранными настройками", type="primary"):
+                    st.session_state.active_plot = 'time_series'
+                    # Сохраняем выбранную длительность в сессию
+                    st.session_state.duration_for_plot = max_duration
+
+    # --- Блок отрисовки графика (виден, когда активен) ---
     if st.session_state.get('active_plot') == 'time_series':
-        required_columns = ['time', 'current_R', 'current_S', 'current_T']
-        if all(col in df.columns for col in required_columns):
-            with st.spinner("⏳ Рисуем временной график..."):
-                fig = go.Figure()
-                fig.add_trace(go.Scattergl(x=df['time'], y=df['current_R'], mode='lines', name='current_R'))
-                fig.add_trace(go.Scattergl(x=df['time'], y=df['current_S'], mode='lines', name='current_S'))
-                fig.add_trace(go.Scattergl(x=df['time'], y=df['current_T'], mode='lines', name='current_T'))
-                fig.update_layout(title=f"График токов из файла {current_file}", xaxis_title="Время, секунды", yaxis_title="Значение тока, Ампер", dragmode="pan")
-                st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.error(f"Не удалось построить график. Необходимые столбцы не найдены: {required_columns}")
+        duration_to_render = st.session_state.get('duration_for_plot', 5.0)
+        
+        # --- НОВАЯ ЛОГИКА: Обрезка DataFrame по времени ---
+        df_to_plot = df[df['time'] <= duration_to_render]
+
+        st.info(f"💡 Отображены данные за первые **{duration_to_render:.1f}** секунд ({len(df_to_plot):,} точек).")
+
+        with st.spinner("⏳ Рисуем временной график..."):
+            fig = go.Figure()
+            fig.add_trace(go.Scattergl(x=df_to_plot['time'], y=df_to_plot['current_R'], mode='lines', name='current_R'))
+            fig.add_trace(go.Scattergl(x=df_to_plot['time'], y=df_to_plot['current_S'], mode='lines', name='current_S'))
+            fig.add_trace(go.Scattergl(x=df_to_plot['time'], y=df_to_plot['current_T'], mode='lines', name='current_T'))
+            fig.update_layout(
+                title=f"График токов из файла {current_file}",
+                xaxis_title="Время, секунды",
+                yaxis_title="Значение тока, Ампер",
+                dragmode="pan"
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
 def display_rms_analysis(df):
     """Рассчитывает и отображает RMS. Не содержит графиков, поэтому логика не меняется."""
